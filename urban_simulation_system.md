@@ -75,7 +75,8 @@ UrbanMAS/
 │   │   └── Infrastructure.jl    # Инфраструктура
 │   ├── processes/               # Бизнес-процессы
 │   │   ├── CapitalInvestment.jl # Управление капиталом
-│   │   ├── Lifecycle.jl         # Жизненный цикл
+│   │   ├── Lifecycle.jl         # Жизненный цикл (ГОСТ Р 10)
+│   │   ├── BIMManager.jl        # BIM менеджмент (ГОСТ Р 10.00.00.05)
 │   │   ├── Procurement.jl       # Закупки (44-ФЗ, 223-ФЗ)
 │   │   └── Permitting.jl        # Разрешительная документация
 │   ├── economics/               # Экономические модели
@@ -238,48 +239,311 @@ end
 end
 ```
 
-### 4.2 Управление жизненным циклом
+### 4.2 Управление жизненным циклом (по ГОСТ Р 10.00.00.05 ЕСИМ)
 
 ```julia
 module Lifecycle
 
-enum LifecycleStage
-    PRE_INVESTMENT      # Предынвестиционная фаза
-    INVESTMENT          # Инвестиционная фаза
-    CONSTRUCTION        # Строительство
-    COMMISSIONING       # Ввод в эксплуатацию
-    OPERATION           # Эксплуатация
-    MODERNIZATION       # Модернизация
-    DECOMMISSIONING     # Вывод из эксплуатации
+# Детализированные стадии жизненного цикла по ГОСТ Р 10
+enum DetailedLifecycleStage
+    # Предпроектная стадия (П)
+    PRE_PROJECT_PLANNING      # П1 - Предпроектные предложения
+    PRE_PROJECT_ANALYSIS      # П2 - Анализ территории
+    PRE_PROJECT_CONCEPT       # П3 - Концептуальное проектирование
+    
+    # Проектирование (ПД)
+    DESIGN_ASSIGNMENT         # Д1 - Задание на проектирование
+    DESIGN_PRELIMINARY        # Д2 - Предпроектная документация
+    DESIGN_BASIC              # Д3 - Основная проектная документация
+    DESIGN_DETAILED           # Д4 - Рабочая документация
+    DESIGN_EXPERTISE          # Д5 - Экспертиза проекта
+    
+    # Строительство (С)
+    CONSTRUCTION_PREP         # С1 - Подготовка к строительству
+    CONSTRUCTION_MAIN         # С2 - Основные строительно-монтажные работы
+    CONSTRUCTION_SPECIAL      # С3 - Специальные работы
+    CONSTRUCTION_COMMISSIONING # С4 - Пусконаладочные работы
+    
+    # Ввод в эксплуатацию (В)
+    COMMISSIONING_DOCS        # В1 - Исполнительная документация
+    COMMISSIONING_INSPECTION  # В2 - Проверка соответствия
+    COMMISSIONING_PERMIT      # В3 - Разрешение на ввод
+    COMMISSIONING_HANDOVER    # В4 - Передача эксплуатанту
+    
+    # Эксплуатация (Э)
+    OPERATION_NORMAL          # Э1 - Штатная эксплуатация
+    OPERATION_MAINTENANCE     # Э2 - Техническое обслуживание
+    OPERATION_REPAIR          # Э3 - Ремонт
+    OPERATION_MONITORING      # Э4 - Мониторинг состояния
+    
+    # Реконструкция (Р)
+    RECONSTRUCTION_ANALYSIS   # Р1 - Анализ необходимости
+    RECONSTRUCTION_DESIGN     # Р2 - Проектирование реконструкции
+    RECONSTRUCTION_WORK       # Р3 - Выполнение работ
+    
+    # Завершение ЖЦ (З)
+    DECOMMISSIONING_DECISION  # З1 - Решение о выводе
+    DECOMMISSIONING_PREP      # З2 - Подготовка к ликвидации
+    DECOMMISSIONING_WORK      # З3 - Ликвидация/снос
+    DECOMMISSIONING_RECYCLE   # З4 - Утилизация
 end
 
-struct AssetLifecycle
-    asset_id::UUID
-    current_stage::LifecycleStage
-    stage_history::Vector{StageTransition}
-    remaining_life::TimePeriod
-    maintenance_schedule::MaintenancePlan
-    degradation_model::DegradationModel
+# Категории информационной модели
+enum InformationModelCategory
+    MODEL_ARCHITECTURAL    # Архитектурные решения (АР)
+    MODEL_CONSTRUCTION     # Конструктивные решения (КР)
+    MODEL_ENGINEERING      # Инженерные системы (ИС)
+    MODEL_TECHNOLOGICAL    # Технологические решения (ТХ)
+    MODEL_SCHEDULE         # Календарное планирование (4D)
+    MODEL_COST             # Сметное моделирование (5D)
+    MODEL_RESOURCES        # Управление ресурсами
+    MODEL_ENVIRONMENT      # Экологический мониторинг
+    MODEL_INTEGRATED       # Сводная модель
 end
 
-struct StageTransition
-    from_stage::LifecycleStage
-    to_stage::LifecycleStage
-    timestamp::DateTime
-    triggers::Vector{Symbol}
-    costs::Money
-    duration::TimePeriod
+# Уровни детализации (LOD)
+enum LevelOfDevelopment
+    LOD_100  # Концептуальная модель
+    LOD_200  # Приблизительная геометрия
+    LOD_300  # Точная геометрия
+    LOD_350  # Детализация для координации
+    LOD_400  # Изготовительская детализация
+    LOD_500  # Ас-билт модель
 end
 
-# Управление техническим состоянием
-function assess_technical_condition(asset::AssetLifecycle)::ConditionAssessment
+# Информационная модель объекта
+struct InformationModel
+    id::UUID
+    object_id::UUID
+    name::String
+    category::InformationModelCategory
+    lod::LevelOfDevelopment
+    version::String
+    status::Symbol  # :wip, :review, :approved, :asbuilt
+    author::UUID
+    responsible_party::UUID
+    file_format::String  # IFC, RVT, etc.
+    applicable_stages::Vector{DetailedLifecycleStage}
+    validation_status::Symbol
+    compliance_gost::Bool
 end
 
-function plan_maintenance(asset::AssetLifecycle, 
-                         budget::Money)::MaintenancePlan
+# Переход между стадиями ЖЦ
+struct LCStageTransition
+    from_stage::DetailedLifecycleStage
+    to_stage::DetailedLifecycleStage
+    transition_date::Date
+    reason::String
+    required_documents::Vector{DocumentType}
+    required_models::Vector{UUID}
+    approved::Bool
 end
 
-function predict_remaining_life(asset::AssetLifecycle)::TimePeriod
+# Требования к стадии ЖЦ
+struct LCStageRequirements
+    stage::DetailedLifecycleStage
+    mandatory_documents::Vector{DocumentType}
+    required_model_categories::Vector{InformationModelCategory}
+    minimum_lod::LevelOfDevelopment
+    required_approvals::Vector{Symbol}  # :expertise, :gosnadzor
+    completion_criteria::Vector{String}
+    regulatory_references::Vector{String}
+end
+
+# Жизненный цикл актива
+mutable struct AssetLifecycle
+    object_id::UUID
+    object_name::String
+    stage_history::Vector{LCStageTransition}
+    current_stage::DetailedLifecycleStage
+    stage_entry_date::Date
+    models::Dict{UUID, InformationModel}
+    documents::Dict{UUID, Document}
+    processes::Dict{UUID, LCProcess}
+    stage_requirements::Dict{DetailedLifecycleStage, LCStageRequirements}
+    cost_accumulated::Money
+    budget_total::Money
+end
+
+# Процесс жизненного цикла
+struct LCProcess
+    id::UUID
+    name::String
+    stage::DetailedLifecycleStage
+    process_type::Symbol  # :design, :construction, :approval
+    planned_start::Date
+    planned_duration::Int
+    responsible_agent::UUID
+    status::Symbol
+    progress::Float64
+end
+
+# Функции управления жизненным циклом
+function create_lifecycle(object::LCObject)::AssetLifecycle
+    # Создание структуры ЖЦ с требованиями по ГОСТ
+end
+
+function advance_stage!(lifecycle::AssetLifecycle, 
+                       new_stage::DetailedLifecycleStage)::Bool
+    # Переход на новую стадию с проверкой требований
+end
+
+function check_stage_completion(lifecycle::AssetLifecycle, 
+                               stage::DetailedLifecycleStage)::Bool
+    # Проверка выполнения критериев завершения стадии
+end
+
+function add_model!(lifecycle::AssetLifecycle, model::InformationModel)
+    # Добавление информационной модели
+end
+
+function update_model_version!(lifecycle::AssetLifecycle, 
+                              model_id::UUID, 
+                              changes::Vector{String})::InformationModel
+    # Обновление версии модели с сохранением истории
+end
+
+function get_lifecycle_metrics(lifecycle::AssetLifecycle)::NamedTuple
+    # Метрики жизненного цикла
+end
+
+function export_lifecycle_report(lifecycle::AssetLifecycle)::String
+    # Формирование отчета по ЖЦ
+end
+
+end
+```
+
+### 4.3 BIM менеджмент (по ГОСТ Р 10.00.00.05)
+
+```julia
+module BIMManager
+
+# Зоны CDE (Common Data Environment)
+enum CDEZone
+    ZONE_WIP        # Work in Progress
+    ZONE_SHARED     # Shared
+    ZONE_PUBLISHED  # Published
+    ZONE_ARCHIVED   # Archived
+end
+
+# Методы поставки
+enum DeliveryMethod
+    METHOD_TRADITIONAL       # Традиционная поставка
+    METHOD_DESIGN_BUILD      # Проектирование и строительство
+    METHOD_IPD              # Интегрированная поставка
+    METHOD_CONSTRUCTION_MGMT # Управление строительством
+end
+
+# План выполнения BIM (BEP)
+mutable struct BIMExecutionPlan
+    id::UUID
+    project_id::UUID
+    project_name::String
+    version::String
+    employer::UUID
+    bim_manager::UUID
+    design_team::Vector{UUID}
+    construction_team::Vector{UUID}
+    software_requirements::Vector{SoftwareRequirement}
+    coordinate_system::String
+    modeling_standards::Vector{String}
+    lod_specifications::Dict{String, LODSpecification}
+    idp::Union{Nothing, InformationDeliveryPlan}
+    containers::Dict{UUID, CDEContainer}
+    status::Symbol
+end
+
+# План информационной поставки (IDP)
+struct InformationDeliveryPlan
+    id::UUID
+    project_id::UUID
+    delivery_method::DeliveryMethod
+    delivery_milestones::Vector{DeliveryMilestone}
+    model_requirements::Vector{ModelRequirement}
+    originator::UUID
+    employer::UUID
+end
+
+# Контейнер CDE
+struct CDEContainer
+    id::UUID
+    name::String
+    zone::CDEZone
+    lifecycle_stage::DetailedLifecycleStage
+    models::Vector{UUID}
+    documents::Vector{UUID}
+    access_level::Symbol
+end
+
+# Спецификация LOD/LOI
+struct LODSpecification
+    element_type::Symbol
+    element_category::String
+    lod_requirements::Dict{DetailedLifecycleStage, LevelOfDevelopment}
+    loi_requirements::Vector{PropertyRequirement}
+    geometric_accuracy::Float64  # мм
+    tolerance::Float64  # мм
+end
+
+# Результат проверки на коллизии
+struct ClashDetectionResult
+    id::UUID
+    detection_date::Date
+    models_checked::Vector{UUID}
+    clashes::Vector{Clash}
+    total_clashes::Int
+    critical_clashes::Int
+end
+
+struct Clash
+    id::UUID
+    type::Symbol  # :hard_clash, :soft_clash
+    severity::Symbol  # :critical, :warning
+    elements::Tuple{String, String}
+    description::String
+    status::Symbol  # :open, :resolved
+end
+
+# Сессия координации моделей
+struct ModelCoordinationSession
+    id::UUID
+    session_date::Date
+    participants::Vector{UUID}
+    models_reviewed::Vector{UUID}
+    issues_identified::Vector{Issue}
+    decisions::Vector{Decision}
+end
+
+# Функции BIM менеджмента
+function create_bep(project_id::UUID, project_name::String;
+                   employer::UUID, bim_manager::UUID)::BIMExecutionPlan
+    # Создание плана выполнения BIM
+end
+
+function create_idp!(bep::BIMExecutionPlan, 
+                    method::DeliveryMethod)::InformationDeliveryPlan
+    # Создание плана информационной поставки
+end
+
+function create_cde_container!(bep::BIMExecutionPlan;
+                              name::String, 
+                              zone::CDEZone)::CDEContainer
+    # Создание контейнера в CDE
+end
+
+function run_clash_detection(models::Vector{InformationModel};
+                            tolerance::Real = 5.0)::ClashDetectionResult
+    # Проверка моделей на коллизии
+end
+
+function validate_model_lod(model::InformationModel, 
+                           required_lod::LevelOfDevelopment)::Bool
+    # Проверка соответствия LOD
+end
+
+function generate_bim_report(bep::BIMExecutionPlan)::String
+    # Отчет по выполнению BIM плана
 end
 
 end
