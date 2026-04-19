@@ -1,0 +1,45 @@
+```
+# Julia-specific ignores
+*.ji
+*.jl.cov
+*.jl.internal.cov
+*.jl.mem
+*.so
+*.dylib
+*.dll
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Dependencies
+.julia/
+deps/build.log
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+```
