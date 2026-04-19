@@ -6,6 +6,7 @@ __precompile__()
 include("agents/AgentTypes.jl")
 include("agents/StateAgent.jl")
 include("agents/GovernmentAgent.jl")
+include("agents/RegulatoryAgent.jl")
 include("agents/DeveloperAgent.jl")
 include("agents/ContractorAgent.jl")
 include("agents/SupplierAgent.jl")
@@ -39,8 +40,11 @@ include("utils/Logging.jl")
 # Re-export main types and functions
 export 
     # Agents
-    AbstractAgent, StateAgent, GovernmentAgent, DeveloperAgent,
+    AbstractAgent, StateAgent, GovernmentAgent, RegulatoryAgent, DeveloperAgent,
     ContractorAgent, SupplierAgent, OperatorAgent,
+    
+    # Regulatory Types
+    RegulatoryType, ViolationRecord, PermitRecord, RegulatoryApplication,
     
     # Environment
     UrbanEnvironment, LegislationModel, MarketModel, InfrastructureGraph,
@@ -87,7 +91,13 @@ export
     
     # Model Element Management functions
     add_element!, add_child_element!, add_parameter!, set_geometry!,
-    update_element_status!, validate_element, get_element_statistics
+    update_element_status!, validate_element, get_element_statistics,
+    
+    # Regulatory functions
+    submit_for_expertise, apply_for_building_permit, perform_inspection,
+    commissioning_approval, issue_violation, check_permits,
+    get_permit_status, process_application, validate_documentation,
+    resolve_violation, get_statistics
 
 # Version information
 const VERSION = VersionNumber(0, 1, 0)
