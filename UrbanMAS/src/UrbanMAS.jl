@@ -18,6 +18,8 @@ include("environment/Infrastructure.jl")
 
 include("processes/CapitalInvestment.jl")
 include("processes/Lifecycle.jl")
+include("processes/BIMManager.jl")
+include("processes/ModelElementManager.jl")
 include("processes/Procurement.jl")
 include("processes/Permitting.jl")
 
@@ -43,8 +45,22 @@ export
     # Environment
     UrbanEnvironment, LegislationModel, MarketModel, InfrastructureGraph,
     
-    # Processes
-    InvestmentPortfolio, InvestmentProject, AssetLifecycle, LifecycleStage,
+    # Processes - Lifecycle (GOST R 10)
+    DetailedLifecycleStage, InformationModelCategory, ModelVersionStatus,
+    LevelOfDevelopment, ObjectClassification, LevelOfInformation,
+    ElementStatus, ChangeType, LCObject, InformationModel, AssetLifecycle,
+    LCProcess, LCStageRequirements,
+    
+    # Processes - BIM Management
+    CDEZone, DeliveryMethod, CDEContainer, InformationDeliveryPlan,
+    ClashDetectionResult, ModelCoordinationSession, LODSpecification,
+    BIMExecutionPlan,
+    
+    # Processes - Model Element Management
+    ModelElement, ModelElementContainer, ElementValidationResult,
+    
+    # Processes - General
+    InvestmentPortfolio, InvestmentProject, LifecycleStage,
     ProcurementProcedure, GradingDocumentation,
     
     # Economics
@@ -59,7 +75,19 @@ export
     # Main functions
     create_agent, run_simulation, optimize_portfolio,
     evaluate_project_lifecycle, calculate_system_metrics,
-    detect_emergence, generate_report
+    detect_emergence, generate_report,
+    
+    # Lifecycle functions
+    create_lifecycle, advance_stage!, add_model!, update_model_version!,
+    add_document!, get_lifecycle_metrics, export_lifecycle_report,
+    
+    # BIM functions
+    create_bep, create_idp!, create_cde_container!, run_clash_detection,
+    validate_model_lod, generate_bim_report,
+    
+    # Model Element Management functions
+    add_element!, add_child_element!, add_parameter!, set_geometry!,
+    update_element_status!, validate_element, get_element_statistics
 
 # Version information
 const VERSION = VersionNumber(0, 1, 0)
